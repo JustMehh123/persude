@@ -6,11 +6,22 @@ import { eq, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+// GET - Fetch a single site
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    const siteId = parseInt(params.id);
+    
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
+    }
+
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -19,15 +30,6 @@ export async function GET(
       );
     }
 
-    const siteId = parseInt(params.id);
-    if (isNaN(siteId)) {
-      return NextResponse.json(
-        { error: "Invalid site ID" },
-        { status: 400 }
-      );
-    }
-
-    // FIXED: changed userId to ownerId
     const siteList = await db
       .select()
       .from(sites)
@@ -51,11 +53,22 @@ export async function GET(
   }
 }
 
+// PUT - Update a site
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    const siteId = parseInt(params.id);
+    
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
+    }
+
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -64,18 +77,9 @@ export async function PUT(
       );
     }
 
-    const siteId = parseInt(params.id);
-    if (isNaN(siteId)) {
-      return NextResponse.json(
-        { error: "Invalid site ID" },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json();
     const { name, slug, description, theme, published } = body;
 
-    // FIXED: changed userId to ownerId
     const existingSite = await db
       .select()
       .from(sites)
@@ -89,7 +93,6 @@ export async function PUT(
       );
     }
 
-    // Update site
     const updatedSite = await db
       .update(sites)
       .set({
@@ -113,11 +116,22 @@ export async function PUT(
   }
 }
 
+// DELETE - Remove a site
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    const siteId = parseInt(params.id);
+    
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
+    }
+
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -126,15 +140,6 @@ export async function DELETE(
       );
     }
 
-    const siteId = parseInt(params.id);
-    if (isNaN(siteId)) {
-      return NextResponse.json(
-        { error: "Invalid site ID" },
-        { status: 400 }
-      );
-    }
-
-    // FIXED: changed userId to ownerId
     const existingSite = await db
       .select()
       .from(sites)
