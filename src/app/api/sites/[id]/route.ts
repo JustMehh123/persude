@@ -8,136 +8,157 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const params = await props.params;
-    const siteId = parseInt(params.id, 10);
-    if (isNaN(siteId)) {
-      return NextResponse.json({ error: "Invalid site ID" }, { status: 400 });
-    }
-
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
+    const siteId = parseInt(params.id);
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
+    }
+
+    // FIXED: changed userId to ownerId
     const siteList = await db
       .select()
       .from(sites)
-      .where(and(eq(sites.id, siteId), eq(sites.userId, user.id)))
+      .where(and(eq(sites.id, siteId), eq(sites.ownerId, user.id)))
       .limit(1);
 
     if (siteList.length === 0) {
-      return NextResponse.json({ error: "Site not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Site not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ site: siteList[0] });
+    return NextResponse.json(siteList[0]);
   } catch (error) {
-    console.error("Error getting site:", error);
-    return NextResponse.json({ error: "Failed to get site" }, { status: 500 });
+    console.error("Error fetching site:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const params = await props.params;
-    const siteId = parseInt(params.id, 10);
-    if (isNaN(siteId)) {
-      return NextResponse.json({ error: "Invalid site ID" }, { status: 400 });
-    }
-
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    // Verify ownership
-    const existing = await db
-      .select()
-      .from(sites)
-      .where(and(eq(sites.id, siteId), eq(sites.userId, user.id)))
-      .limit(1);
-
-    if (existing.length === 0) {
-      return NextResponse.json({ error: "Site not found" }, { status: 404 });
+    const siteId = parseInt(params.id);
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    const {
-      title,
-      tagline,
-      description,
-      category,
-      theme,
-      content,
-      isPublished,
-      customDomain,
-      seoTitle,
-      seoDescription,
-    } = body;
+    const { name, slug, description, theme, published } = body;
 
-    const updateData: Partial<typeof sites.$inferInsert> = {
-      updatedAt: new Date(),
-    };
+    // FIXED: changed userId to ownerId
+    const existingSite = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.id, siteId), eq(sites.ownerId, user.id)))
+      .limit(1);
 
-    if (title !== undefined) updateData.title = title;
-    if (tagline !== undefined) updateData.tagline = tagline;
-    if (description !== undefined) updateData.description = description;
-    if (category !== undefined) updateData.category = category;
-    if (theme !== undefined) updateData.theme = theme;
-    if (content !== undefined) {
-      updateData.content = typeof content === "string" ? content : JSON.stringify(content);
+    if (existingSite.length === 0) {
+      return NextResponse.json(
+        { error: "Site not found" },
+        { status: 404 }
+      );
     }
-    if (isPublished !== undefined) updateData.isPublished = Boolean(isPublished);
-    if (customDomain !== undefined) updateData.customDomain = customDomain;
-    if (seoTitle !== undefined) updateData.seoTitle = seoTitle;
-    if (seoDescription !== undefined) updateData.seoDescription = seoDescription;
 
-    const [updatedSite] = await db
+    // Update site
+    const updatedSite = await db
       .update(sites)
-      .set(updateData)
+      .set({
+        name: name || existingSite[0].name,
+        slug: slug || existingSite[0].slug,
+        description: description || existingSite[0].description,
+        theme: theme || existingSite[0].theme,
+        published: published !== undefined ? published : existingSite[0].published,
+        updatedAt: new Date(),
+      })
       .where(eq(sites.id, siteId))
       .returning();
 
-    return NextResponse.json({ success: true, site: updatedSite });
+    return NextResponse.json(updatedSite[0]);
   } catch (error) {
     console.error("Error updating site:", error);
-    return NextResponse.json({ error: "Failed to update site" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const params = await props.params;
-    const siteId = parseInt(params.id, 10);
-    if (isNaN(siteId)) {
-      return NextResponse.json({ error: "Invalid site ID" }, { status: 400 });
-    }
-
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const result = await db
-      .delete(sites)
-      .where(and(eq(sites.id, siteId), eq(sites.userId, user.id)))
-      .returning();
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Site not found" }, { status: 404 });
+    const siteId = parseInt(params.id);
+    if (isNaN(siteId)) {
+      return NextResponse.json(
+        { error: "Invalid site ID" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ success: true, message: "Site deleted" });
+    // FIXED: changed userId to ownerId
+    const existingSite = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.id, siteId), eq(sites.ownerId, user.id)))
+      .limit(1);
+
+    if (existingSite.length === 0) {
+      return NextResponse.json(
+        { error: "Site not found or unauthorized" },
+        { status: 404 }
+      );
+    }
+
+    await db.delete(sites).where(eq(sites.id, siteId));
+
+    return NextResponse.json(
+      { message: "Site deleted successfully" },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error deleting site:", error);
-    return NextResponse.json({ error: "Failed to delete site" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
