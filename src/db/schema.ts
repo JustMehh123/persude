@@ -1,16 +1,17 @@
 // src/db/schema.ts
-import { pgTable, text, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
-// --- users ---
+// ---------- users ----------
 export const users = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   email: text().notNull().unique(),
-  // add other columns...
+  name: text(),
+  createdAt: timestamp().notNull().defaultNow(),
 });
 
 export type User = typeof users.$inferSelect;
 
-// --- sessions ---
+// ---------- sessions ----------
 export const sessions = pgTable("sessions", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer()
@@ -18,10 +19,10 @@ export const sessions = pgTable("sessions", {
     .references(() => users.id),
   token: text().notNull().unique(),
   expiresAt: timestamp().notNull(),
-  // other columns...
+  createdAt: timestamp().notNull().defaultNow(),
 });
 
-// --- sites ---
+// ---------- sites ----------
 export const sites = pgTable("sites", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   ownerId: integer()
@@ -29,28 +30,32 @@ export const sites = pgTable("sites", {
     .references(() => users.id),
   slug: text().notNull().unique(),
   name: text().notNull(),
-  // other columns...
+  description: text(),
+  theme: text().default("default"),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
 });
 
-// --- siteViews ---
+// ---------- siteViews ----------
 export const siteViews = pgTable("site_views", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   siteId: integer()
     .notNull()
     .references(() => sites.id),
-  viewedAt: timestamp().notNull(),
-  // other columns...
+  viewedAt: timestamp().notNull().defaultNow(),
+  ip: text(),
+  userAgent: text(),
 });
 
-// --- systemSettings ---
+// ---------- systemSettings ----------
 export const systemSettings = pgTable("system_settings", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   key: text().notNull().unique(),
   value: jsonb().notNull(),
-  // other columns...
+  updatedAt: timestamp().notNull().defaultNow(),
 });
 
-// --- accounts (if you use OAuth, etc.) ---
+// ---------- accounts (OAuth, etc.) ----------
 export const accounts = pgTable("accounts", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer()
@@ -58,5 +63,8 @@ export const accounts = pgTable("accounts", {
     .references(() => users.id),
   provider: text().notNull(),
   providerAccountId: text().notNull(),
-  // other columns...
+  accessToken: text(),
+  refreshToken: text(),
+  expiresAt: timestamp(),
+  createdAt: timestamp().notNull().defaultNow(),
 });
